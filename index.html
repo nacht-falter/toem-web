@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Toem — cards</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- Sign in. The token is the same one the players use; it is kept in
+     localStorage so it survives a reload. -->
+<section id="login" hidden>
+  <h1>Toem</h1>
+  <p class="muted">Enter your API token to continue.</p>
+  <form id="login-form">
+    <label for="token">API token</label>
+    <input id="token" type="password" autocomplete="current-password"
+           required spellcheck="false">
+    <label for="api-url">API address</label>
+    <input id="api-url" type="url" spellcheck="false" autocomplete="off">
+    <button type="submit">Sign in</button>
+  </form>
+  <p id="login-error" class="error" hidden></p>
+</section>
+
+<!-- Main view -->
+<section id="app" hidden>
+  <header>
+    <h1>Toem</h1>
+    <button id="sign-out" class="link">Sign out</button>
+  </header>
+
+  <nav class="tabs">
+    <button id="tab-add" class="tab active" type="button">Add a card</button>
+    <button id="tab-list" class="tab" type="button">Cards</button>
+  </nav>
+
+  <!-- Add -->
+  <div id="view-add">
+    <label for="rfid">Card number</label>
+    <input id="rfid" inputmode="numeric" autocomplete="off" spellcheck="false"
+           placeholder="printed on the card">
+    <p id="rfid-note" class="note" hidden></p>
+
+    <label for="search">Album</label>
+    <div class="row">
+      <input id="search" type="search" autocomplete="off"
+             placeholder="search by name or artist">
+      <button id="search-btn" type="button">Search</button>
+    </div>
+
+    <ul id="results" class="results"></ul>
+
+    <div id="chosen" hidden>
+      <h2>Selected</h2>
+      <div class="chosen-card">
+        <img id="chosen-image" alt="" width="64" height="64">
+        <div>
+          <p id="chosen-title" class="strong"></p>
+          <p id="chosen-meta" class="muted small"></p>
+        </div>
+      </div>
+
+      <label for="title">Title shown on the card list</label>
+      <input id="title" autocomplete="off">
+
+      <button id="save" type="button">Save card</button>
+    </div>
+
+    <p id="add-status" class="status" hidden></p>
+  </div>
+
+  <!-- List -->
+  <div id="view-list" hidden>
+    <p id="list-status" class="muted">Loading…</p>
+    <ul id="cards" class="cards"></ul>
+  </div>
+</section>
+
+<script src="app.js"></script>
+</body>
+</html>
