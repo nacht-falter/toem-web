@@ -40,15 +40,25 @@ Any static server:
 
     python3 -m http.server 8080
 
-Then open <http://127.0.0.1:8080>. On first load, enter the API address and your
-API token — the same token the players use.
+Then open <http://127.0.0.1:8080>. On first load the API address field is
+expanded — point it at your API, then sign in with your username and password.
+The address is remembered, so it is collapsed on later visits.
 
-## The token is kept in localStorage
+Set a password with the admin token:
 
-That is a deliberate trade for a personal tool: it keeps you signed in across
-reloads, but anything that can run script on this page can read it. So every
-value coming back from the API or Spotify is rendered with `textContent`, never
-`innerHTML` — an album title is attacker-influenced data as far as this page is
-concerned. Keep that property if you edit the rendering code.
+    curl -X POST "$API/users/password" \
+      -H "Authorization: Bearer $ADMIN_TOKEN" \
+      -H "Content-Type: application/json" \
+      -d '{"user_id":"you","password":"at least twelve characters"}'
 
-Sign out clears the token.
+## Sessions
+
+Signing in exchanges the password for a **session token**, which is separate
+from the long-lived token the players use — revoking a session does not mean
+reconfiguring every device. Signing out revokes it server-side.
+
+The session is kept in localStorage, so you stay signed in across reloads. That
+also means anything able to run script on this page can read it, which is why
+every value coming back from the API or Spotify is rendered with `textContent`
+and never `innerHTML` — an album title is attacker-influenced data as far as
+this page is concerned. Keep that property if you edit the rendering code.

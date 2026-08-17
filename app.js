@@ -6,11 +6,15 @@
  * proxied by GET /spotify/search, because Spotify rejects unauthenticated
  * search and client_credentials is a secret that must not ship in a browser.
  *
- * The API token lives in localStorage. That is a deliberate trade for a
- * personal tool: it keeps you signed in, but it means anything that can run
- * script on this page can read the token. Hence every value that comes back
- * from the API or Spotify is written with textContent, never innerHTML - an
- * album title is attacker-influenced data as far as this page is concerned.
+ * Sign-in is username and password so a password manager can fill it. The API
+ * returns a session token, which is stored in localStorage. That session is
+ * separate from the long-lived token the players use, so revoking it does not
+ * mean reconfiguring every device.
+ *
+ * Storing it keeps you signed in, but means anything that can run script on
+ * this page can read it. Hence every value that comes back from the API or
+ * Spotify is written with textContent, never innerHTML - an album title is
+ * attacker-influenced data as far as this page is concerned.
  */
 
 const DEFAULT_API = "https://toemapi.johannesbernet.com";
@@ -40,7 +44,7 @@ async function api(path, options = {}) {
   });
 
   if (response.status === 401) {
-    signOut("That token was not accepted.");
+    signOut("Session expired. Please sign in again.");
     throw new Error("unauthorized");
   }
   if (!response.ok) {
@@ -77,10 +81,19 @@ function setStatus(el, message, kind) {
   el.hidden = !message;
 }
 
-function signOut(message) {
+async function signOut(message) {
+  // Revoke server-side too, so a stored session cannot be reused elsewhere.
+  if (store.token) {
+    try {
+      await fetch(store.api + "/logout", {
+        method: "POST",
+        headers: { "Authorization": "Bearer " + store.token },
+      });
+    } catch (_) { /* offline: clearing locally is still worth doing */ }
+  }
   store.token = null;
   show("login");
-  $("token").value = "";
+  $("password").value = "";
   if (message) {
     $("login-error").textContent = message;
     $("login-error").hidden = false;
@@ -271,21 +284,41 @@ function selectTab(which) {
 
 function start() {
   $("api-url").value = store.api;
+  // Open the API address on first run: it is the one time it matters, and
+  // leaving it collapsed makes it easy to sign in against the wrong server.
+  if (!localStorage.getItem("toem.api")) $("api-details").open = true;
 
   $("login-form").addEventListener("submit", async (event) => {
     event.preventDefault();
     $("login-error").hidden = true;
     store.api = $("api-url").value.trim() || DEFAULT_API;
-    store.token = $("token").value.trim();
+
     try {
-      await api("/music");          // cheapest call that proves the token works
+      const response = await fetch(store.api + "/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_id: $("username").value.trim(),
+          password: $("password").value,
+          label: "web",
+        }),
+      });
+      if (!response.ok) {
+        const detail = response.status === 401 ? "Wrong user or password."
+                     : response.status === 429 ? "Too many attempts. Try again later."
+                     : "Sign-in failed (HTTP " + response.status + ").";
+        throw new Error(detail);
+      }
+      store.token = (await response.json()).token;
+      $("password").value = "";
       show("app");
       selectTab("add");
     } catch (error) {
-      if (error.message !== "unauthorized") {
-        $("login-error").textContent = "Could not reach the API: " + error.message;
-        $("login-error").hidden = false;
-      }
+      $("login-error").textContent = error.message.startsWith("Wrong")
+        || error.message.startsWith("Too many") || error.message.startsWith("Sign-in")
+        ? error.message
+        : "Could not reach the API: " + error.message;
+      $("login-error").hidden = false;
     }
   });
 

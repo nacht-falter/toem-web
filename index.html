@@ -8,17 +8,22 @@
 </head>
 <body>
 
-<!-- Sign in. The token is the same one the players use; it is kept in
-     localStorage so it survives a reload. -->
+<!-- Sign in. Username and password so a password manager can fill them; the
+     API returns a session token, which is kept in localStorage. That session
+     is separate from the players' token and can be revoked on its own. -->
 <section id="login" hidden>
   <h1>Toem</h1>
-  <p class="muted">Enter your API token to continue.</p>
   <form id="login-form">
-    <label for="token">API token</label>
-    <input id="token" type="password" autocomplete="current-password"
-           required spellcheck="false">
-    <label for="api-url">API address</label>
-    <input id="api-url" type="url" spellcheck="false" autocomplete="off">
+    <label for="username">User</label>
+    <input id="username" name="username" autocomplete="username"
+           required spellcheck="false" autocapitalize="none">
+    <label for="password">Password</label>
+    <input id="password" name="password" type="password"
+           autocomplete="current-password" required>
+    <details id="api-details">
+      <summary class="muted small">API address</summary>
+      <input id="api-url" type="url" spellcheck="false" autocomplete="off">
+    </details>
     <button type="submit">Sign in</button>
   </form>
   <p id="login-error" class="error" hidden></p>
