@@ -19,9 +19,10 @@ Spotify rejects unauthenticated `/v1/search`, and `client_credentials` is a
 secret that must not ship in a browser. So the API proxies search at
 `GET /spotify/search`, and this page only ever talks to the Toem API.
 
-Requires a Toem API with that endpoint, and with `CORS_ORIGINS` including
-wherever this page is served from — without it the browser's preflight fails
-and nothing works.
+Requires a [toem-api](https://github.com/nacht-falter/toem-api) with that endpoint,
+and with `CORS_ORIGINS` including wherever this page is served from — without it the
+browser's preflight fails and nothing works. There is no shared instance; deploy
+your own.
 
 ## Scanning
 
@@ -33,6 +34,16 @@ is also printed on each card.
 Card numbers are stored zero-padded to 10 digits. The number printed on a card
 may omit the leading zeros, so input is padded before use — typing `1221753`
 finds `0001221753`.
+
+## Configuring it
+
+Optional. Copy `config.example.js` to `config.js` and set your API address:
+
+    window.TOEM_CONFIG = { apiUrl: "https://toemapi.example.com" };
+
+`config.js` is not committed — it is per-deployment, not per-repo. Without it the
+page still works: the sign-in form asks for the address and remembers it. The
+config only saves whoever uses the page from typing it the first time.
 
 ## Running it
 

@@ -17,7 +17,10 @@
  * attacker-influenced data as far as this page is concerned.
  */
 
-const DEFAULT_API = "https://toemapi.johannesbernet.com";
+/* Set in config.js (optional, not committed - it is per-deployment). With no
+ * config the sign-in form asks for the address, so the page still works; it is
+ * just one more thing to type the first time. */
+const DEFAULT_API = (window.TOEM_CONFIG && window.TOEM_CONFIG.apiUrl) || "";
 const RFID_LENGTH = 10;
 
 const store = {
@@ -284,14 +287,25 @@ function selectTab(which) {
 
 function start() {
   $("api-url").value = store.api;
-  // Open the API address on first run: it is the one time it matters, and
-  // leaving it collapsed makes it easy to sign in against the wrong server.
-  if (!localStorage.getItem("toem.api")) $("api-details").open = true;
+  // Open the API address when there is nothing sensible to fall back on, or on
+  // first run: leaving it collapsed makes it easy to sign in against the wrong
+  // server, which fails as a confusing CORS error rather than a clear one.
+  if (!localStorage.getItem("toem.api") || !store.api) {
+    $("api-details").open = true;
+    if (!DEFAULT_API) $("api-url").required = true;
+  }
 
   $("login-form").addEventListener("submit", async (event) => {
     event.preventDefault();
     $("login-error").hidden = true;
-    store.api = $("api-url").value.trim() || DEFAULT_API;
+    const address = $("api-url").value.trim() || DEFAULT_API;
+    if (!address) {
+      $("login-error").textContent = "Set the API address first.";
+      $("login-error").hidden = false;
+      $("api-details").open = true;
+      return;
+    }
+    store.api = address;
 
     try {
       const response = await fetch(store.api + "/login", {
