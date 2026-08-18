@@ -48,14 +48,37 @@
            placeholder="printed on the card">
     <p id="rfid-note" class="note" hidden></p>
 
-    <label for="search">Album</label>
-    <div class="row">
-      <input id="search" type="search" autocomplete="off"
-             placeholder="search by name or artist">
-      <button id="search-btn" type="button">Search</button>
+    <label for="kind">What goes on the card</label>
+    <select id="kind">
+      <option value="spotify">A single album</option>
+      <option value="spotify_series">A series (playlist of episodes)</option>
+    </select>
+
+    <div id="album-picker">
+      <label for="search">Album</label>
+      <div class="row">
+        <input id="search" type="search" autocomplete="off"
+               placeholder="search by name or artist">
+        <button id="search-btn" type="button">Search</button>
+      </div>
+
+      <ul id="results" class="results"></ul>
     </div>
 
-    <ul id="results" class="results"></ul>
+    <div id="series-picker" hidden>
+      <label for="playlist">Playlist link</label>
+      <div class="row">
+        <input id="playlist" type="url" autocomplete="off"
+               placeholder="paste the Spotify playlist link">
+        <button id="playlist-btn" type="button">Look up</button>
+      </div>
+      <p class="note">
+        Add each episode to the playlist as a whole album, in the order they
+        should be played.
+      </p>
+
+      <ul id="episodes" class="results"></ul>
+    </div>
 
     <div id="chosen" hidden>
       <h2>Selected</h2>

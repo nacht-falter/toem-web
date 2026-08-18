@@ -33,6 +33,9 @@ const store = {
 
 const $ = (id) => document.getElementById(id);
 let chosenAlbum = null;
+// The resolved series when the card is a playlist of episodes. Kept apart
+// from chosenAlbum so save() cannot confuse the two.
+let chosenSeries = null;
 
 /* --- API ---------------------------------------------------------------- */
 
@@ -174,6 +177,74 @@ function resultRow(album) {
   return li;
 }
 
+function cardKind() {
+  return $("kind").value;
+}
+
+function switchKind() {
+  const series = cardKind() === "spotify_series";
+  $("album-picker").hidden = series;
+  $("series-picker").hidden = !series;
+  // Whichever selection was made no longer applies to what is being created.
+  chosenAlbum = null;
+  chosenSeries = null;
+  $("chosen").hidden = true;
+  $("results").replaceChildren();
+  $("episodes").replaceChildren();
+}
+
+async function lookUpPlaylist() {
+  const link = $("playlist").value.trim();
+  if (!link) return;
+
+  setStatus($("add-status"), "Looking up the playlist…");
+  $("episodes").replaceChildren();
+  try {
+    const series = await api("/spotify/playlist?url=" + encodeURIComponent(link));
+    if (!series.episodes.length) {
+      setStatus($("add-status"),
+        "That playlist has no album tracks in it.", "error");
+      return;
+    }
+    showSeries(series);
+    setStatus($("add-status"), "");
+    $("add-status").hidden = true;
+  } catch (error) {
+    setStatus($("add-status"), "Could not read it: " + error.message, "error");
+  }
+}
+
+function showSeries(series) {
+  chosenSeries = series;
+
+  // Listing every episode is the point: a mis-curated playlist is far cheaper
+  // to catch here than after a child has met it.
+  series.episodes.forEach((episode, index) => {
+    const li = document.createElement("li");
+    const line = document.createElement("p");
+    line.textContent = (index + 1) + ". " + (episode.name || "(untitled)");
+    const meta = document.createElement("p");
+    meta.className = "muted small";
+    meta.textContent = episode.tracks + (episode.tracks === 1 ? " track" : " tracks");
+    li.append(line, meta);
+    $("episodes").append(li);
+  });
+
+  $("chosen-title").textContent = series.name || "(untitled playlist)";
+  $("chosen-meta").textContent =
+    series.episodes.length + " episodes, starting with " +
+    (series.episodes[0].name || "(untitled)");
+  const img = $("chosen-image");
+  if (series.episodes[0].image) {
+    img.src = series.episodes[0].image; img.hidden = false;
+  } else {
+    img.hidden = true;
+  }
+  $("title").value = series.name || "";
+  $("chosen").hidden = false;
+  $("chosen").scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
 function choose(album) {
   chosenAlbum = album;
   $("chosen-title").textContent = album.name;
@@ -192,8 +263,12 @@ async function save() {
     setStatus($("add-status"), "Enter the card number first.", "error");
     return;
   }
-  if (!chosenAlbum) {
-    setStatus($("add-status"), "Choose an album first.", "error");
+  const series = cardKind() === "spotify_series";
+  const chosen = series ? chosenSeries : chosenAlbum;
+  if (!chosen) {
+    setStatus($("add-status"),
+      series ? "Look up the playlist first." : "Choose an album first.",
+      "error");
     return;
   }
 
@@ -203,9 +278,9 @@ async function save() {
       method: "POST",
       body: JSON.stringify({
         rfid: rfid,
-        source: "spotify",
-        location: chosenAlbum.uri,
-        title: $("title").value.trim() || chosenAlbum.title,
+        source: cardKind(),
+        location: chosen.uri,
+        title: $("title").value.trim() || chosen.title || chosen.name,
       }),
     });
     setStatus($("add-status"), "Saved. Players pick this up within a minute.", "ok");
@@ -217,6 +292,9 @@ async function save() {
 
 function resetForm() {
   chosenAlbum = null;
+  chosenSeries = null;
+  $("playlist").value = "";
+  $("episodes").replaceChildren();
   $("rfid").value = "";
   $("search").value = "";
   $("title").value = "";
@@ -244,6 +322,14 @@ async function loadCards() {
   }
 }
 
+function describeSource(source) {
+  // The stored values are for the player, not for reading over breakfast.
+  if (source === "spotify_series") return "series";
+  if (source === "spotify") return "album";
+  if (source === "local") return "local files";
+  return source;
+}
+
 function cardRow(card) {
   const li = document.createElement("li");
 
@@ -253,7 +339,7 @@ function cardRow(card) {
   title.textContent = card.title || "(untitled)";
   const meta = document.createElement("p");
   meta.className = "muted small";
-  meta.textContent = card.rfid + " · " + card.source;
+  meta.textContent = card.rfid + " · " + describeSource(card.source);
   text.append(title, meta);
 
   const remove = document.createElement("button");
@@ -340,6 +426,11 @@ function start() {
   $("tab-add").addEventListener("click", () => selectTab("add"));
   $("tab-list").addEventListener("click", () => selectTab("list"));
   $("search-btn").addEventListener("click", search);
+  $("kind").addEventListener("change", switchKind);
+  $("playlist-btn").addEventListener("click", lookUpPlaylist);
+  $("playlist").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); lookUpPlaylist(); }
+  });
   $("save").addEventListener("click", save);
   $("rfid").addEventListener("change", checkExisting);
 
