@@ -33,9 +33,9 @@ const store = {
 
 const $ = (id) => document.getElementById(id);
 let chosenAlbum = null;
-// The resolved series when the card is a playlist of episodes. Kept apart
-// from chosenAlbum so save() cannot confuse the two.
-let chosenSeries = null;
+// The resolved playlist, whether it is a series or played straight through.
+// Kept apart from chosenAlbum so save() cannot confuse the two.
+let chosenPlaylist = null;
 
 /* --- API ---------------------------------------------------------------- */
 
@@ -181,13 +181,22 @@ function cardKind() {
   return $("kind").value;
 }
 
+// What the player stores. A plain playlist plays exactly like an album - one
+// context, straight through - so it needs no source of its own; the URI
+// already says which it is. Only a series behaves differently.
+function sourceForKind() {
+  return cardKind() === "series" ? "spotify_series" : "spotify";
+}
+
 function switchKind() {
-  const series = cardKind() === "spotify_series";
-  $("album-picker").hidden = series;
-  $("series-picker").hidden = !series;
+  const kind = cardKind();
+  $("album-picker").hidden = kind !== "album";
+  $("playlist-picker").hidden = kind === "album";
+  $("note-series").hidden = kind !== "series";
+  $("note-playlist").hidden = kind !== "playlist";
   // Whichever selection was made no longer applies to what is being created.
   chosenAlbum = null;
-  chosenSeries = null;
+  chosenPlaylist = null;
   $("chosen").hidden = true;
   $("results").replaceChildren();
   $("episodes").replaceChildren();
@@ -200,13 +209,17 @@ async function lookUpPlaylist() {
   setStatus($("add-status"), "Looking up the playlist…");
   $("episodes").replaceChildren();
   try {
-    const series = await api("/spotify/playlist?url=" + encodeURIComponent(link));
-    if (!series.episodes.length) {
+    const playlist = await api("/spotify/playlist?url=" + encodeURIComponent(link));
+    if (!playlist.episodes.length) {
       setStatus($("add-status"),
-        "That playlist has no album tracks in it.", "error");
+        "That playlist has no playable tracks in it.", "error");
       return;
     }
-    showSeries(series);
+    if (cardKind() === "series") {
+      showSeries(playlist);
+    } else {
+      showPlaylist(playlist);
+    }
     setStatus($("add-status"), "");
     $("add-status").hidden = true;
   } catch (error) {
@@ -214,8 +227,32 @@ async function lookUpPlaylist() {
   }
 }
 
+function totalTracks(playlist) {
+  return playlist.episodes.reduce((sum, episode) => sum + episode.tracks, 0);
+}
+
+function showPlaylist(playlist) {
+  // No episode list here: the albums a music playlist happens to draw from
+  // are not something anyone chose, so listing them would be noise.
+  chosenPlaylist = playlist;
+
+  const tracks = totalTracks(playlist);
+  $("chosen-title").textContent = playlist.name || "(untitled playlist)";
+  $("chosen-meta").textContent =
+    tracks + (tracks === 1 ? " track" : " tracks") + ", played in order";
+  const img = $("chosen-image");
+  if (playlist.episodes[0].image) {
+    img.src = playlist.episodes[0].image; img.hidden = false;
+  } else {
+    img.hidden = true;
+  }
+  $("title").value = playlist.name || "";
+  $("chosen").hidden = false;
+  $("chosen").scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
 function showSeries(series) {
-  chosenSeries = series;
+  chosenPlaylist = series;
 
   // Listing every episode is the point: a mis-curated playlist is far cheaper
   // to catch here than after a child has met it.
@@ -263,11 +300,11 @@ async function save() {
     setStatus($("add-status"), "Enter the card number first.", "error");
     return;
   }
-  const series = cardKind() === "spotify_series";
-  const chosen = series ? chosenSeries : chosenAlbum;
+  const byLink = cardKind() !== "album";
+  const chosen = byLink ? chosenPlaylist : chosenAlbum;
   if (!chosen) {
     setStatus($("add-status"),
-      series ? "Look up the playlist first." : "Choose an album first.",
+      byLink ? "Look up the playlist first." : "Choose an album first.",
       "error");
     return;
   }
@@ -278,7 +315,7 @@ async function save() {
       method: "POST",
       body: JSON.stringify({
         rfid: rfid,
-        source: cardKind(),
+        source: sourceForKind(),
         location: chosen.uri,
         title: $("title").value.trim() || chosen.title || chosen.name,
       }),
@@ -292,7 +329,7 @@ async function save() {
 
 function resetForm() {
   chosenAlbum = null;
-  chosenSeries = null;
+  chosenPlaylist = null;
   $("playlist").value = "";
   $("episodes").replaceChildren();
   $("rfid").value = "";
@@ -322,12 +359,17 @@ async function loadCards() {
   }
 }
 
-function describeSource(source) {
+function describeCard(card) {
   // The stored values are for the player, not for reading over breakfast.
-  if (source === "spotify_series") return "series";
-  if (source === "spotify") return "album";
-  if (source === "local") return "local files";
-  return source;
+  // Album and playlist share a source because they play identically; the URI
+  // is what says which one it is.
+  if (card.source === "spotify_series") return "series";
+  if (card.source === "local") return "local files";
+  if (card.source === "spotify") {
+    return (card.location || "").startsWith("spotify:playlist:")
+      ? "playlist" : "album";
+  }
+  return card.source;
 }
 
 function cardRow(card) {
@@ -339,7 +381,7 @@ function cardRow(card) {
   title.textContent = card.title || "(untitled)";
   const meta = document.createElement("p");
   meta.className = "muted small";
-  meta.textContent = card.rfid + " · " + describeSource(card.source);
+  meta.textContent = card.rfid + " · " + describeCard(card);
   text.append(title, meta);
 
   const remove = document.createElement("button");

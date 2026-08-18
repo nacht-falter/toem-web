@@ -50,8 +50,9 @@
 
     <label for="kind">What goes on the card</label>
     <select id="kind">
-      <option value="spotify">A single album</option>
-      <option value="spotify_series">A series (playlist of episodes)</option>
+      <option value="album">A single album</option>
+      <option value="playlist">A playlist, played straight through</option>
+      <option value="series">A series (playlist of episodes)</option>
     </select>
 
     <div id="album-picker">
@@ -65,17 +66,22 @@
       <ul id="results" class="results"></ul>
     </div>
 
-    <div id="series-picker" hidden>
+    <div id="playlist-picker" hidden>
       <label for="playlist">Playlist link</label>
       <div class="row">
         <input id="playlist" type="url" autocomplete="off"
                placeholder="paste the Spotify playlist link">
         <button id="playlist-btn" type="button">Look up</button>
       </div>
-      <p class="note">
+      <p id="note-series" class="note" hidden>
         Add each episode to the playlist as a whole album, in the order they
         should be played. The playlist must be <strong>public</strong> &mdash;
         a private one cannot be read by anything but the account that owns it.
+      </p>
+      <p id="note-playlist" class="note" hidden>
+        The whole playlist plays in order, like an album. The playlist must be
+        <strong>public</strong> &mdash; a private one cannot be read by
+        anything but the account that owns it.
       </p>
 
       <ul id="episodes" class="results"></ul>
